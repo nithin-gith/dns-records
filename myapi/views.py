@@ -6,6 +6,20 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 import socket
 
+
+'''
+This REST API has two end points
+
+1. /postip
+2. /getip?domain=...
+
+1. this endpoint takes json as request and post it to postgres database
+2. takes query parameters from request url and searches for domain in database and returns ip if present
+   other wise does ip look and adds to the database and also returns the ip 
+
+'''
+
+
 @api_view(['POST'])
 def postIP(request):
     if Domain.objects.filter(domain=request.data['domain']).exists():
@@ -27,7 +41,6 @@ def postIP(request):
                 'status':'created'
             },status.HTTP_201_CREATED
         )
-
     return Response({'success':False,'status': 'error'},status.HTTP_501_NOT_IMPLEMENTED)
 
 @api_view(['GET'])
@@ -45,10 +58,24 @@ def getIP(request):
                     }      
                 },status.HTTP_200_OK)
         except Domain.DoesNotExist:
-            return Response(status = status.HTTP_404_NOT_FOUND)
+            return Response(
+                {
+                    'success':False,
+                    'data':{
+                        'ip':"none"
+                    }      
+                },status.HTTP_404_NOT_FOUND)
 
     else:
-        ip = socket.gethostbyname(domain)
+        try:
+            ip = socket.gethostbyname(domain)
+        except:
+            return Response({
+                'success':False,
+                'data':{
+                    'ip': "none" 
+                }      
+            },status.HTTP_404_NOT_FOUND)
         serializer = DomainSerializer(data={'domain': domain, 'ip': ip})
         if serializer.is_valid():
             serializer.save()
@@ -59,5 +86,11 @@ def getIP(request):
                     'ip': ip 
                 }      
             },status.HTTP_201_CREATED)
-    return Response({'success':False, 'data':{}},status.HTTP_503_SERVICE_UNAVAILABLE)
+    return Response({
+        'success':False, 
+        'data':{
+            'ip':"none"
+        }
+    },status.HTTP_503_SERVICE_UNAVAILABLE)
+    
 
